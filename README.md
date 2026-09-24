@@ -7,8 +7,8 @@
 ### 🌐 Official Project Submission Links
 | Resource | URL Link | Status |
 | :--- | :--- | :--- |
-| **🚀 Live Interactive Web App** | `https://<your-github-username>.github.io/cybersentinel-ai/` | ![Live](https://img.shields.io/badge/Status-Live%20Online-emerald.svg) |
-| **📂 Source Code Repository** | `https://github.com/<your-github-username>/cybersentinel-ai` | ![Repo](https://img.shields.io/badge/GitHub-Public%20Repo-blue.svg) |
+| **🚀 Live Interactive Web App** | `https://tgvcreations.github.io/cyber/` | ![Live](https://img.shields.io/badge/Status-Live%20Online-emerald.svg) |
+| **📂 Source Code Repository** | `https://github.com/tgvcreations/cyber` | ![Repo](https://img.shields.io/badge/GitHub-Public%20Repo-blue.svg) |
 
 ---
 
