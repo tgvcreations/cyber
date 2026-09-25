@@ -212,10 +212,6 @@
         <i data-lucide="file-search" class="w-4 h-4"></i>
         <span>Log Analyzer & Ingestion</span>
       </button>
-      <button onclick="switchTab('simulator')" id="tab-btn-simulator" class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
-        <i data-lucide="swords" class="w-4 h-4"></i>
-        <span>Attack Simulator</span>
-      </button>
       <button onclick="switchTab('response-center')" id="tab-btn-response-center" class="nav-tab flex items-center gap-2 py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
         <i data-lucide="shield-check" class="w-4 h-4"></i>
         <span>Response & Containment</span>
@@ -529,145 +525,7 @@
 
     </div>
 
-    <!-- ================= 5. TAB: ATTACK SIMULATOR ================= -->
-    <div id="view-simulator" class="tab-view hidden space-y-6">
-      
-      <div class="soc-card p-6">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h2 class="font-heading font-bold text-base text-white flex items-center gap-2">
-              <i data-lucide="swords" class="w-5 h-5 text-rose-400"></i>
-              Interactive Red-Team Attack Simulator
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Safely emulate adversary tactics in real-time to demonstrate automated detection and containment.</p>
-          </div>
-          <span class="text-xs font-mono bg-rose-500/10 text-rose-400 px-2.5 py-1 rounded border border-rose-500/20">
-            Safe Sandbox Environment
-          </span>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          
-          <!-- Simulation 1: Brute Force -->
-          <div class="bg-midnight-950 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-sky-400 font-mono">T1110</span>
-                <span class="text-[10px] uppercase font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Critical</span>
-              </div>
-              <h4 class="font-heading font-semibold text-sm text-white mb-1">Credential Brute-Force</h4>
-              <p class="text-xs text-slate-400 mb-3 leading-relaxed">Emulates 35 rapid failed SSH authentication attempts targeting administrator credentials on DC-01.</p>
-              <div class="text-[11px] font-mono text-slate-500 bg-midnight-900 p-2 rounded mb-4">
-                Target: Primary Domain Controller<br>Source: 192.0.2.45
-              </div>
-            </div>
-            <button onclick="triggerSimulation('brute_force')" class="w-full py-2 bg-slate-800 hover:bg-sky-600 text-white font-medium text-xs rounded-lg transition flex items-center justify-center gap-1.5">
-              <i data-lucide="zap" class="w-3.5 h-3.5"></i>
-              <span>Launch Brute Force</span>
-            </button>
-          </div>
-
-          <!-- Simulation 2: Burp Suite Web Attack -->
-          <div class="bg-midnight-950 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-amber-400 font-mono">T1190</span>
-                <span class="text-[10px] uppercase font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Critical</span>
-              </div>
-              <h4 class="font-heading font-semibold text-sm text-white mb-1">Burp Suite SQL Injection Probe</h4>
-              <p class="text-xs text-slate-400 mb-3 leading-relaxed">Simulates Burp Suite Intruder fuzzing HTTP parameters with `' UNION SELECT username, password_hash FROM users--`.</p>
-              <div class="text-[11px] font-mono text-slate-500 bg-midnight-900 p-2 rounded mb-4">
-                Target: Web Gateway (Edge-DMZ)<br>Tool: Burp Suite Scanner
-              </div>
-            </div>
-            <button onclick="triggerSimulation('burp_suite')" class="w-full py-2 bg-slate-800 hover:bg-amber-600 text-white font-medium text-xs rounded-lg transition flex items-center justify-center gap-1.5">
-              <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
-              <span>Launch Burp Suite Probe</span>
-            </button>
-          </div>
-
-          <!-- Simulation 3: Malware C2 Beacon -->
-          <div class="bg-midnight-950 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-purple-400 font-mono">T1059.001</span>
-                <span class="text-[10px] uppercase font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Critical</span>
-              </div>
-              <h4 class="font-heading font-semibold text-sm text-white mb-1">Obfuscated PowerShell C2</h4>
-              <p class="text-xs text-slate-400 mb-3 leading-relaxed">Fires encoded PowerShell reverse-shell beaconing to exterior command & control node with 5s jitter.</p>
-              <div class="text-[11px] font-mono text-slate-500 bg-midnight-900 p-2 rounded mb-4">
-                Target: Executive Workstation<br>Action: Host Isolation
-              </div>
-            </div>
-            <button onclick="triggerSimulation('malware_c2')" class="w-full py-2 bg-slate-800 hover:bg-purple-600 text-white font-medium text-xs rounded-lg transition flex items-center justify-center gap-1.5">
-              <i data-lucide="radio" class="w-3.5 h-3.5"></i>
-              <span>Launch C2 Beacon</span>
-            </button>
-          </div>
-
-          <!-- Simulation 4: Recon Port Scan -->
-          <div class="bg-midnight-950 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-emerald-400 font-mono">T1046</span>
-                <span class="text-[10px] uppercase font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">High</span>
-              </div>
-              <h4 class="font-heading font-semibold text-sm text-white mb-1">Stealth Port Scan (Nmap)</h4>
-              <p class="text-xs text-slate-400 mb-3 leading-relaxed">Emulates sequential TCP SYN probe sweeping closed ports across DMZ firewalls looking for unpatched listeners.</p>
-              <div class="text-[11px] font-mono text-slate-500 bg-midnight-900 p-2 rounded mb-4">
-                Target: Web Gateway DMZ<br>Ports: 21, 22, 80, 445, 3389
-              </div>
-            </div>
-            <button onclick="triggerSimulation('port_scan')" class="w-full py-2 bg-slate-800 hover:bg-emerald-600 text-white font-medium text-xs rounded-lg transition flex items-center justify-center gap-1.5">
-              <i data-lucide="radar" class="w-3.5 h-3.5"></i>
-              <span>Launch Port Scan</span>
-            </button>
-          </div>
-
-          <!-- Simulation 5: Sudo Privilege Escalation -->
-          <div class="bg-midnight-950 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-rose-400 font-mono">T1548.003</span>
-                <span class="text-[10px] uppercase font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Critical</span>
-              </div>
-              <h4 class="font-heading font-semibold text-sm text-white mb-1">Unauthorized Root Sudo</h4>
-              <p class="text-xs text-slate-400 mb-3 leading-relaxed">Simulates compromise of service account `web-app-svc` attempting root extraction of `/etc/shadow`.</p>
-              <div class="text-[11px] font-mono text-slate-500 bg-midnight-900 p-2 rounded mb-4">
-                Target: Financial Database DB-01<br>Action: Revoke Service Creds
-              </div>
-            </div>
-            <button onclick="triggerSimulation('privilege_escalation')" class="w-full py-2 bg-slate-800 hover:bg-rose-600 text-white font-medium text-xs rounded-lg transition flex items-center justify-center gap-1.5">
-              <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
-              <span>Launch Privilege Escalation</span>
-            </button>
-          </div>
-
-          <!-- Simulation 6: Large Data Exfiltration -->
-          <div class="bg-midnight-950 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between">
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-sky-400 font-mono">T1048</span>
-                <span class="text-[10px] uppercase font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">Critical</span>
-              </div>
-              <h4 class="font-heading font-semibold text-sm text-white mb-1">Encrypted Data Egress</h4>
-              <p class="text-xs text-slate-400 mb-3 leading-relaxed">Emulates 4.8 GB outbound encrypted dump from Financial DB to unclassified external IP over port 8443.</p>
-              <div class="text-[11px] font-mono text-slate-500 bg-midnight-900 p-2 rounded mb-4">
-                Target: Financial Database DB-01<br>Action: Null-Route Attacker
-              </div>
-            </div>
-            <button onclick="triggerSimulation('data_exfiltration')" class="w-full py-2 bg-slate-800 hover:bg-sky-600 text-white font-medium text-xs rounded-lg transition flex items-center justify-center gap-1.5">
-              <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
-              <span>Launch Data Exfiltration</span>
-            </button>
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ================= 6. TAB: RESPONSE & CONTAINMENT ================= -->
+    <!-- ================= 5. TAB: RESPONSE & CONTAINMENT ================= -->
     <div id="view-response-center" class="tab-view hidden space-y-6">
       
       <!-- Defensive Posture Summary -->
@@ -2448,7 +2306,7 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
       container.appendChild(card);
     }
 
-    // ================= TAB 5: ATTACK SIMULATOR =================
+    // ================= INCIDENT SIMULATION ENGINE (DEMO INCIDENTS) =================
     function triggerSimulation(type) {
       const state = getAppState();
       const now = new Date();
