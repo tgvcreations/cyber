@@ -122,6 +122,22 @@
         background: #FFFFFF !important;
         box-shadow: none !important;
       }
+      #reportCanvas {
+        background: #FFFFFF !important;
+        color: #111827 !important;
+        border: 1px solid #E2E8F0 !important;
+        box-shadow: none !important;
+      }
+      #reportCanvas * {
+        color: #0F172A !important;
+        background-color: transparent !important;
+        border-color: #CBD5E1 !important;
+      }
+      #reportCanvas pre, #reportCanvas code {
+        background-color: #F8FAFC !important;
+        border: 1px solid #E2E8F0 !important;
+        color: #0F172A !important;
+      }
     }
   </style>
 </head>
@@ -1480,7 +1496,8 @@ Target: Primary Domain Controller (DC-01)`,
 Source IP: 198.51.100.44 User-Agent: Mozilla/5.0 Status: 500 Port: 443 Target: Web Gateway`,
 
       burp_suite: `POST /api/v1/login HTTP/1.1
-Host: 127.0.0.1:8000
+Host: web-gateway.corp.internal:443
+X-Forwarded-For: 198.51.100.42
 User-Agent: Mozilla/5.0 (BurpSuite Intruder / Pentest Probe)
 X-Scanner: Burp-Suite-Professional
 Content-Type: application/x-www-form-urlencoded
@@ -2028,13 +2045,17 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
     }
 
     function renderCharts(incidents) {
+      const state = getAppState();
       // 1. Trend Chart
       const trendCtx = document.getElementById('trendChart');
       if (trendCtx) {
         if (trendChartInstance) trendChartInstance.destroy();
 
         const labels = ['6d ago', '5d ago', '4d ago', '3d ago', '2d ago', 'Yesterday', 'Today'];
-        const dataPoints = [3, 5, 2, 8, 4, 7, incidents.length];
+        const todayCount = (state.today_attack_events != null) 
+          ? state.today_attack_events 
+          : Math.max(incidents.length, 6);
+        const dataPoints = [3, 5, 2, 8, 4, 7, todayCount];
 
         trendChartInstance = new Chart(trendCtx, {
           type: 'line',
@@ -2044,16 +2065,22 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
               label: 'Attack Velocity',
               data: dataPoints,
               borderColor: '#38BDF8',
-              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+              backgroundColor: 'rgba(56, 189, 248, 0.12)',
               tension: 0.35,
               fill: true,
-              pointBackgroundColor: '#38BDF8',
-              pointRadius: 4
+              pointBackgroundColor: ['#38BDF8', '#38BDF8', '#38BDF8', '#38BDF8', '#38BDF8', '#38BDF8', '#38BDF8'],
+              pointBorderColor: ['#38BDF8', '#38BDF8', '#38BDF8', '#38BDF8', '#38BDF8', '#38BDF8', '#FFFFFF'],
+              pointRadius: [4, 4, 4, 4, 4, 4, 6],
+              pointHoverRadius: 8
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+              duration: 500,
+              easing: 'easeOutQuart'
+            },
             plugins: {
               legend: { display: false }
             },
@@ -2437,17 +2464,17 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
           attack_category: "Suspicious web request",
           severity: "Critical",
           risk_score: 88,
-          source_ip: "127.0.0.1",
+          source_ip: "198.51.100.42",
           target_asset: "Web Gateway (Edge-DMZ)",
           status: "New",
           ai_summary: "Burp Suite Intruder fuzzing session detected targeting API endpoints with SQL injection tautology payloads (' OR 1=1--).",
-          why_suspicious: "High-frequency requests with Burp Suite scanner User-Agents and raw SQL meta-syntax strings.",
-          evidence: "POST /api/v1/login User-Agent: Mozilla/5.0 (BurpSuite Intruder) Payload: ' OR '1'='1'--",
+          why_suspicious: "High-frequency requests with Burp Suite scanner User-Agents and raw SQL meta-syntax strings from external IP 198.51.100.42.",
+          evidence: "POST /api/v1/login User-Agent: Mozilla/5.0 (BurpSuite Intruder) Source-IP: 198.51.100.42 Payload: ' OR '1'='1'--",
           recommended_action: "1. Enforce Web Application Firewall rate limiting.\n2. Apply immediate perimeter IP drop rule.\n3. Sanitize all backend SQL statements.",
           mitre_technique: "T1190 - Exploit Public-Facing Application",
-          analyst_notes: "Simulated Burp Suite penetration testing probe caught live.",
+          analyst_notes: "Simulated Burp Suite penetration testing probe caught live from external adversary 198.51.100.42.",
           timeline: [
-            { stage: "Detection", time: now.toLocaleTimeString(), actor: "WAF Sensor", message: "Burp Suite Intruder signature matched." },
+            { stage: "Detection", time: now.toLocaleTimeString(), actor: "WAF Sensor", message: "Burp Suite Intruder signature matched from external IP 198.51.100.42." },
             { stage: "Analysis", time: now.toLocaleTimeString(), actor: "AI Reasoning", message: "Risk score 88 (Critical) assigned." }
           ]
         };
@@ -2561,11 +2588,16 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
 
       if (simIncident) {
         state.incidents.unshift(simIncident);
+        activeModalIncidentId = simIncident.id;
+        state.today_attack_events = (state.today_attack_events || Math.max(state.incidents.length, 6)) + 1;
         saveAppState(state);
         SyncEngine.publish('NEW_INCIDENT', simIncident);
         showThreatPopup(simIncident, false);
         showToast(`Simulation launched! Created incident ${incId}`, 'danger');
         renderDashboard();
+        if (currentTab === 'live-alerts') renderLiveAlerts();
+        if (currentTab === 'incidents') renderIncidentsTable();
+        populateReportDropdown();
       }
     }
 
@@ -2661,6 +2693,7 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
         const inc = (state.incidents || []).find(i => i.id === incidentId);
         if (inc) {
           inc.status = "Contained";
+          if (!inc.timeline) inc.timeline = [];
           inc.timeline.push({
             stage: "Response",
             time: new Date().toLocaleTimeString(),
@@ -2679,12 +2712,16 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
           details: `Perimeter drop rule deployed. Incident ${incidentId} marked as Contained.`
         });
 
+        state.today_attack_events = (state.today_attack_events || 7) + 1;
         saveAppState(state);
         SyncEngine.publish('BLOCK_IP', { ip: ip, incidentId: incidentId });
         showToast(`Attacker IP ${ip} successfully blocked at firewall!`, 'success');
         renderDashboard();
+        renderResponseCenter();
         if (currentTab === 'live-alerts') renderLiveAlerts();
-        if (currentTab === 'response-center') renderResponseCenter();
+        if (currentTab === 'incidents') renderIncidentsTable();
+        populateReportDropdown();
+        renderReportPreview();
       } else {
         showToast(`IP ${ip} is already blocked!`, 'warning');
       }
@@ -2693,6 +2730,7 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
     function unblockIp(ip) {
       const state = getAppState();
       state.blocked_ips = state.blocked_ips.filter(b => b.ip_address !== ip);
+      if (!state.audit_logs) state.audit_logs = [];
       state.audit_logs.unshift({
         time: new Date().toLocaleTimeString(),
         type: "UNBLOCK_IP",
@@ -2705,11 +2743,15 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
       showToast(`IP ${ip} removed from blacklist.`, 'info');
       renderResponseCenter();
       renderDashboard();
+      if (activeModalIncidentId) {
+        openIncidentModal(activeModalIncidentId);
+      }
     }
 
     function reconnectHost(hostname) {
       const state = getAppState();
       state.isolated_endpoints = state.isolated_endpoints.filter(h => h.hostname !== hostname);
+      if (!state.audit_logs) state.audit_logs = [];
       state.audit_logs.unshift({
         time: new Date().toLocaleTimeString(),
         type: "RECONNECT_ENDPOINT",
@@ -2721,6 +2763,10 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
       SyncEngine.publish('FULL_STATE_SYNC', state);
       showToast(`Host ${hostname} reconnected to network.`, 'info');
       renderResponseCenter();
+      renderDashboard();
+      if (activeModalIncidentId) {
+        openIncidentModal(activeModalIncidentId);
+      }
     }
 
     // ================= TAB 7: AI SOC CO-PILOT =================
@@ -2751,47 +2797,72 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
       history.appendChild(userMsg);
       input.value = '';
 
-      // Generate AI Answer
+      // Generate Context-Aware AI Answer
       const state = getAppState();
       const incidents = state.incidents || [];
       const criticalCount = incidents.filter(i => i.severity === 'Critical').length;
-      const recentCrit = incidents.find(i => i.severity === 'Critical') || incidents[0];
+      // Get the currently investigated incident or latest active incident
+      const activeInc = (activeModalIncidentId && incidents.find(i => i.id === activeModalIncidentId)) || incidents[0];
 
       let answer = "";
       const qLower = question.toLowerCase();
 
       if (qLower.includes("critical") || qLower.includes("why was")) {
-        answer = `Incident **${recentCrit ? recentCrit.id : 'INC-2026-8801'}** was scored at **${recentCrit ? recentCrit.risk_score : 85}/100 (Critical)** because:
-1. **Target Criticality**: It targeted **${recentCrit ? recentCrit.target_asset : 'the Web Gateway / Domain Controller'}**, which holds high operational tier value (multiplier 1.25x).
-2. **Threat Vector**: Classified under MITRE ATT&CK **${recentCrit ? recentCrit.mitre_technique : 'T1190 / T1110'}** representing direct unauthorized exploitation or administrative credential attack.
-3. **Velocity**: Threat indicators show automated machine-speed repetition requiring immediate automated containment.`;
+        const incId = activeInc ? activeInc.id : 'INC-2026-8801';
+        const incTitle = activeInc ? activeInc.title : 'Burp Suite Automated Web Vulnerability Probe';
+        const target = activeInc ? activeInc.target_asset : 'Web Gateway (Edge-DMZ)';
+        const sourceIp = activeInc ? activeInc.source_ip : '198.51.100.42';
+        const score = activeInc ? activeInc.risk_score : 88;
+        const mitre = activeInc ? activeInc.mitre_technique : 'T1190 - Exploit Public-Facing Application';
+        
+        answer = `Incident **${incId}** (${incTitle}) was classified as **Critical (Risk Score: ${score}/100)** by CyberSentinel's local offline heuristic engine because:
+1. **Critical Target Infrastructure**: The adversary probed **${target}**, a perimeter reverse proxy protecting sensitive corporate network zones (Asset Criticality Multiplier: 1.25x).
+2. **Adversary Technique**: Mapped to MITRE ATT&CK **${mitre}**, indicating automated exploitation probes against public-facing attack surfaces.
+3. **Detected Telemetry Tokens**: Raw HTTP payload inspection flagged Burp Suite Intruder signatures and SQL injection tautology syntax (\`' OR 1=1--\`) originating from external attacker IP **${sourceIp}**.
+4. **Deterministic Local Triage**: Scored 100% client-side via weighted heuristic multipliers (Attempts: high velocity + Asset: Edge-DMZ + Payload: SQLi) without relying on external cloud LLM dependencies.`;
+      } else if (qLower.includes("containment") || qLower.includes("action") || qLower.includes("next") || qLower.includes("what should i take")) {
+        const incId = activeInc ? activeInc.id : 'Active Incident';
+        const target = activeInc ? activeInc.target_asset : 'Web Gateway (Edge-DMZ)';
+        const sourceIp = activeInc ? activeInc.source_ip : '198.51.100.42';
+        const isBlocked = (state.blocked_ips || []).some(b => b.ip_address === sourceIp);
+        const isIsolated = (state.isolated_endpoints || []).some(h => h.hostname === target);
+
+        answer = `Recommended NIST SP 800-61 containment workflow for **${incId}** (${target}):
+1. **Perimeter Firewall Drop Rule**: ${isBlocked ? `✓ **Enforced**: Attacker IP \`${sourceIp}\` is already blocked at the edge router.` : `Click **Simulate Block IP** in the incident modal to deploy an immediate perimeter drop rule for \`${sourceIp}\`.`}
+2. **VLAN Host Quarantine**: ${isIsolated ? `✓ **Enforced**: Host \`${target}\` is quarantined to an isolated VLAN.` : `Click **Isolate Host** if lateral compromise is suspected on \`${target}\` to prevent pivot attacks.`}
+3. **WAF Rule Hardening**: Deploy rate-limiting policies and sanitize backend parameter handling for tautology strings (\`' OR '1'='1'--\`).
+4. **Executive Briefing**: Switch to the **Reports** tab to review the auto-populated NIST SP 800-61 dossier and export as PDF or Markdown.`;
+      } else if (qLower.includes("burp") || qLower.includes("brup") || qLower.includes("sqli") || qLower.includes("sql injection")) {
+        const sourceIp = activeInc ? activeInc.source_ip : '198.51.100.42';
+        answer = `**CyberSentinel AI Burp Suite & SQLi Detection Engine**:
+CyberSentinel's local detection engine correlates raw HTTP telemetry through a multi-factor heuristic pipeline:
+• **Scanner Signature Matching**: Identifies Burp Suite headers (\`User-Agent: Mozilla/5.0 (BurpSuite Intruder / Pentest Probe)\`, \`X-Scanner: Burp-Suite-Professional\`).
+• **SQL Injection Tautologies**: Flags boolean evasion syntax such as \`admin' OR '1'='1'--\` and \`UNION SELECT\` targeting authentication endpoints (\`/api/v1/login\`).
+• **Edge DMZ Correlation**: Links requests from external adversary IP \`${sourceIp}\` directly to \`Web Gateway (Edge-DMZ)\` under MITRE ATT&CK **T1190**.
+• **Autonomous Alert Dispatch**: Instantly triggers DEFCON 2 alarm elevation and populates the Live Alerts feed for rapid 1-click containment!`;
       } else if (qLower.includes("brute") || qLower.includes("evidence")) {
-        answer = `The brute-force attack signature is verified by:
-• **Velocity**: Rapid repeated authentication failures (typically >20 failures within seconds).
-• **Administrative Targeting**: Probing high-privilege usernames (admin, root, sa).
-• **Mitigation Step**: Execute the **Simulate Block IP** action to null-route the attacker IP and enforce temporary credential locking.`;
-      } else if (qLower.includes("containment") || qLower.includes("action") || qLower.includes("next")) {
-        answer = `Recommended NIST SP 800-61 containment workflow for current state:
-1. **Perimeter Containment**: Click **Auto-Block IP** on any uncontained critical alerts.
-2. **Endpoint Isolation**: If malware or C2 beaconing is detected, isolate the host to quarantine VLAN.
-3. **Credential Invalidation**: Revoke Kerberos/OAuth tokens for targeted user accounts.
-4. **Post-Incident Review**: Compile and sign the formal incident report in the **Reports** tab.`;
-      } else if (qLower.includes("burp") || qLower.includes("brup")) {
-        answer = `**Burp Suite Attack Detection Mechanism in CyberSentinel AI**:
-When Burp Suite (Repeater, Intruder, Scanner) tests the application:
-• **Signature Matching**: Intercepts Burp headers (\`User-Agent: BurpSuite\`, \`X-Scanner: Burp\`) and common fuzzing tautology payloads (\`' OR '1'='1'--\`, \`UNION SELECT\`).
-• **Risk Scoring**: Evaluates the payload velocity and asset value, automatically assigning a Critical risk score (>80).
-• **Live Defense**: Instantly triggers an alert on the **Live Alerts** queue, allowing the SOC analyst to simulate an immediate firewall IP drop rule!`;
+        answer = `**Credential Brute-Force Telemetry Analysis**:
+• **Telemetry Indicators**: High-velocity failed logins (typically >20 failures in <10 seconds) targeting administrative accounts (\`admin\`, \`root\`).
+• **Asset Criticality**: Attacks against the Domain Controller (DC-01) trigger a 1.35x asset multiplier, pushing the risk score to Critical (89/100).
+• **Remediation Action**: Execute the **Simulate Block IP** action to null-route the attacker IP and enforce temporary credential locking.`;
       } else if (qLower.includes("posture") || qLower.includes("summarize") || qLower.includes("status")) {
-        answer = `**Current SOC Threat Briefing**:
-• Total Registered Incidents: **${incidents.length}**
-• Critical Threats Active: **${criticalCount}**
-• Blocked Malicious IPs: **${state.blocked_ips ? state.blocked_ips.length : 0}**
-• Containment Status: **${criticalCount > 0 ? 'Elevated Alert (DEFCON 2)' : 'Nominal Posture'}**
-Automated defensive sensors are active and monitoring all incoming telemetry.`;
+        const blockedCount = (state.blocked_ips || []).length;
+        const isolatedCount = (state.isolated_endpoints || []).length;
+        const activeCount = incidents.filter(i => i.status !== 'Resolved').length;
+        const containedCount = incidents.filter(i => i.status === 'Contained').length;
+        answer = `**Current SOC Threat Briefing & Defensive Posture**:
+• **Active Incidents**: **${activeCount}** (${criticalCount} Critical, ${containedCount} Contained)
+• **Total Incidents Registered**: **${incidents.length}**
+• **Active Firewall IP Drop Rules**: **${blockedCount}**
+• **Quarantined Endpoint VLANs**: **${isolatedCount}**
+• **Threat Posture**: **${criticalCount >= 2 ? 'DEFCON 2: ELEVATED THREAT' : (activeCount > 0 ? 'DEFCON 3: HEIGHTENED READINESS' : 'DEFCON 5: NORMAL POSTURE')}**
+All automated defensive sensors, mesh synchronization, and NIST SP 800-61 reporting modules are operational.`;
       } else {
-        answer = `Understood. Analyzing telemetry for "${question}"...
-Based on active correlation rules, all indicators adhere to NIST SP 800-61 containment guidelines. You can inspect the full incident case details or trigger an automated containment response directly from the console.`;
+        answer = `**CyberSentinel Co-Pilot Analysis for "${question}"**:
+Reviewing telemetry regarding active incident **${activeInc ? activeInc.id : 'Active Case'}** (${activeInc ? activeInc.title : 'Incident'} targeting ${activeInc ? activeInc.target_asset : 'Web Gateway'}):
+• **Detection Signature**: Evaluated via CyberSentinel's deterministic local heuristic rules.
+• **Current Case Status**: **${activeInc ? activeInc.status : 'New'}** (Risk Score: ${activeInc ? activeInc.risk_score : 88}/100, MITRE ${activeInc ? activeInc.mitre_technique : 'T1190'}).
+• **Recommended Workflow**: Enforce containment via **Simulate Block IP** or **Isolate Host**, then generate the formal executive briefing in the **Reports** tab.`;
       }
 
       // Add AI response
@@ -2816,40 +2887,73 @@ Based on active correlation rules, all indicators adhere to NIST SP 800-61 conta
     function populateReportDropdown() {
       const state = getAppState();
       const select = document.getElementById('reportIncidentSelect');
+      if (!select) return;
       select.innerHTML = '';
 
-      (state.incidents || []).forEach(inc => {
+      const incidents = state.incidents || [];
+      if (incidents.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No incident cases in registry';
+        select.appendChild(opt);
+        return;
+      }
+
+      incidents.forEach(inc => {
         const opt = document.createElement('option');
         opt.value = inc.id;
-        opt.textContent = `${inc.id} - ${inc.title.substring(0, 40)}...`;
+        opt.textContent = `${inc.id} - ${inc.title.substring(0, 42)}... (${inc.severity})`;
         select.appendChild(opt);
       });
+
+      // Default selection priority: activeModalIncidentId if exists, otherwise first incident in list
+      if (activeModalIncidentId && incidents.some(i => i.id === activeModalIncidentId)) {
+        select.value = activeModalIncidentId;
+      } else if (incidents.length > 0) {
+        select.value = incidents[0].id;
+      }
     }
 
     function renderReportPreview() {
       const state = getAppState();
       const select = document.getElementById('reportIncidentSelect');
-      const incId = select.value || (state.incidents[0] ? state.incidents[0].id : null);
-      
       const canvas = document.getElementById('reportCanvas');
-      if (!incId) {
-        canvas.innerHTML = "<p class='text-center text-slate-500'>No incident cases available for report generation.</p>";
+      if (!canvas) return;
+
+      const incidents = state.incidents || [];
+      let incId = select ? select.value : null;
+      if (!incId && incidents.length > 0) {
+        incId = (activeModalIncidentId && incidents.some(i => i.id === activeModalIncidentId))
+          ? activeModalIncidentId
+          : incidents[0].id;
+        if (select) select.value = incId;
+      }
+
+      if (!incId || incidents.length === 0) {
+        canvas.innerHTML = "<div class='text-center py-12 text-slate-500 font-mono text-xs'>No incident cases available for report generation. Run a simulation or ingest logs to generate a NIST briefing.</div>";
         return;
       }
 
-      const inc = state.incidents.find(i => i.id === incId);
-      if (!inc) return;
+      const inc = incidents.find(i => i.id === incId) || incidents[0];
+      if (!inc) {
+        canvas.innerHTML = "<div class='text-center py-12 text-slate-500 font-mono text-xs'>Selected incident not found in registry.</div>";
+        return;
+      }
+
+      const statusBadgeColor = inc.status === 'Resolved' 
+        ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' 
+        : (inc.status === 'Contained' ? 'text-sky-400 bg-sky-500/10 border-sky-500/30' : 'text-amber-400 bg-amber-500/10 border-amber-500/30');
 
       canvas.innerHTML = `
         <div class="border-b border-slate-800 pb-6">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between flex-wrap gap-4">
             <div>
               <span class="text-xs font-mono font-bold text-sky-400 uppercase tracking-wider">CyberSentinel AI Defensive Platform</span>
               <h1 class="font-heading font-extrabold text-xl text-white mt-1">Formal Cyber Incident Response Briefing</h1>
               <p class="text-xs text-slate-400">Standard: NIST SP 800-61 Rev. 2 Computer Security Incident Handling Guide</p>
             </div>
             <div class="text-right font-mono text-xs">
-              <div class="text-white font-bold">${inc.id}</div>
+              <div class="text-white font-bold text-sm text-sky-400">${inc.id}</div>
               <div class="text-slate-400">${new Date(inc.created_at).toLocaleString()}</div>
             </div>
           </div>
@@ -2866,18 +2970,18 @@ Based on active correlation rules, all indicators adhere to NIST SP 800-61 conta
         <!-- Technical Threat Analysis -->
         <div class="space-y-2">
           <h3 class="font-heading font-bold text-xs uppercase tracking-wider text-slate-400">2. Technical Threat Indicators & Scope</h3>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs bg-midnight-900 p-3 rounded-lg border border-slate-800">
-            <div><span class="text-slate-500 block text-[10px]">Source IP</span><span class="text-white">${inc.source_ip}</span></div>
-            <div><span class="text-slate-500 block text-[10px]">Target Asset</span><span class="text-white">${inc.target_asset}</span></div>
-            <div><span class="text-slate-500 block text-[10px]">Risk Score</span><span class="text-rose-400 font-bold">${inc.risk_score}/100</span></div>
-            <div><span class="text-slate-500 block text-[10px]">Status</span><span class="text-emerald-400">${inc.status}</span></div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs bg-midnight-900 p-3.5 rounded-lg border border-slate-800">
+            <div><span class="text-slate-500 block text-[10px] uppercase">Attacker IP</span><span class="text-white font-semibold">${inc.source_ip}</span></div>
+            <div><span class="text-slate-500 block text-[10px] uppercase">Target Asset</span><span class="text-white font-semibold">${inc.target_asset}</span></div>
+            <div><span class="text-slate-500 block text-[10px] uppercase">Risk Score</span><span class="text-rose-400 font-bold">${inc.risk_score} / 100</span></div>
+            <div><span class="text-slate-500 block text-[10px] uppercase">Current Status</span><span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase border ${statusBadgeColor}">${inc.status}</span></div>
           </div>
         </div>
 
         <!-- Evidence -->
         <div class="space-y-2">
           <h3 class="font-heading font-bold text-xs uppercase tracking-wider text-slate-400">3. Log Telemetry Evidence</h3>
-          <pre class="bg-midnight-900 p-3 rounded-lg border border-slate-800 font-mono text-xs text-slate-300 whitespace-pre-wrap">${inc.evidence}</pre>
+          <pre class="bg-midnight-900 p-3.5 rounded-lg border border-slate-800 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">${inc.evidence}</pre>
         </div>
 
         <!-- Remediation & Action -->
@@ -2885,7 +2989,7 @@ Based on active correlation rules, all indicators adhere to NIST SP 800-61 conta
           <h3 class="font-heading font-bold text-xs uppercase tracking-wider text-slate-400">4. Containment & Corrective Action Taken</h3>
           <p class="text-xs text-slate-300 bg-midnight-900 p-3.5 rounded-lg border border-slate-800 whitespace-pre-line leading-relaxed">
             ${inc.recommended_action}
-            \nAnalyst Audit Note: ${inc.analyst_notes || 'Defensive countermeasures verified by CyberSentinel AI Agent.'}
+            \nAnalyst Audit Note: ${inc.analyst_notes || 'Defensive countermeasures verified and enforced by CyberSentinel AI Agent.'}
           </p>
         </div>
 
@@ -2906,8 +3010,13 @@ Based on active correlation rules, all indicators adhere to NIST SP 800-61 conta
     function exportMarkdownReport() {
       const state = getAppState();
       const select = document.getElementById('reportIncidentSelect');
-      const incId = select.value;
-      const inc = (state.incidents || []).find(i => i.id === incId);
+      const incidents = state.incidents || [];
+      const incId = (select && select.value) || (activeModalIncidentId && incidents.some(i => i.id === activeModalIncidentId) ? activeModalIncidentId : (incidents[0] ? incidents[0].id : null));
+      if (!incId) {
+        showToast("No incident selected to export.", "warning");
+        return;
+      }
+      const inc = incidents.find(i => i.id === incId);
       if (!inc) return;
 
       const md = `# NIST SP 800-61 Cyber Incident Briefing: ${inc.id}
@@ -2916,6 +3025,7 @@ Based on active correlation rules, all indicators adhere to NIST SP 800-61 conta
 **Severity**: ${inc.severity} (Risk Score: ${inc.risk_score}/100)
 **MITRE ATT&CK**: ${inc.mitre_technique}
 **Status**: ${inc.status}
+**Generated**: ${new Date().toISOString()}
 
 ## 1. Executive Summary
 ${inc.ai_summary}
@@ -2931,8 +3041,10 @@ ${inc.evidence}
 ## 4. Remediation & Action Taken
 ${inc.recommended_action}
 
+**Analyst Notes**: ${inc.analyst_notes || 'All defensive containment workflows executed safely.'}
+
 ---
-*Generated autonomously by CyberSentinel AI SOC Agent.*
+*Generated autonomously by CyberSentinel AI SOC Defensive Agent (NIST SP 800-61 Aligned).*
 `;
 
       const blob = new Blob([md], { type: 'text/markdown' });
@@ -2968,6 +3080,36 @@ ${inc.recommended_action}
       document.getElementById('modalEvidence').textContent = inc.evidence;
 
       document.getElementById('modalStatusSelect').value = inc.status;
+
+      // Dynamic button state synchronization
+      const blockBtn = document.getElementById('modalBlockIpBtn');
+      const isolateBtn = document.getElementById('modalIsolateBtn');
+      const isIpBlocked = (state.blocked_ips || []).some(b => b.ip_address === inc.source_ip);
+      const isHostIsolated = (state.isolated_endpoints || []).some(h => h.hostname === inc.target_asset);
+
+      if (blockBtn) {
+        if (isIpBlocked) {
+          blockBtn.disabled = true;
+          blockBtn.className = "px-3 py-1.5 rounded-lg bg-emerald-600/25 border border-emerald-500/50 text-emerald-300 font-semibold text-xs flex items-center gap-1.5 cursor-not-allowed transition";
+          blockBtn.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i><span>✓ IP Blocked / Rule Enforced</span>`;
+        } else {
+          blockBtn.disabled = false;
+          blockBtn.className = "px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold text-xs transition flex items-center gap-1.5";
+          blockBtn.innerHTML = `<i data-lucide="shield-x" class="w-3.5 h-3.5"></i><span>Simulate Block IP</span>`;
+        }
+      }
+
+      if (isolateBtn) {
+        if (isHostIsolated) {
+          isolateBtn.disabled = true;
+          isolateBtn.className = "px-3 py-1.5 rounded-lg bg-emerald-600/25 border border-emerald-500/50 text-emerald-300 font-semibold text-xs flex items-center gap-1.5 cursor-not-allowed transition";
+          isolateBtn.innerHTML = `<i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i><span>✓ Host Quarantined</span>`;
+        } else {
+          isolateBtn.disabled = false;
+          isolateBtn.className = "px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs transition flex items-center gap-1.5";
+          isolateBtn.innerHTML = `<i data-lucide="server-off" class="w-3.5 h-3.5"></i><span>Isolate Host</span>`;
+        }
+      }
 
       // Render NIST 5-Stage Timeline
       const timelineContainer = document.getElementById('modalTimeline');
@@ -3013,12 +3155,19 @@ ${inc.recommended_action}
           actor: "Analyst",
           message: `Incident status updated to ${newStatus}.`
         });
+        state.today_attack_events = (state.today_attack_events || 7) + 1;
         saveAppState(state);
         SyncEngine.publish('STATUS_CHANGE', { id: id, status: newStatus });
         showToast(`Incident ${id} updated to ${newStatus}`, 'info');
         renderDashboard();
         if (currentTab === 'live-alerts') renderLiveAlerts();
         if (currentTab === 'incidents') renderIncidentsTable();
+        if (currentTab === 'response-center') renderResponseCenter();
+        populateReportDropdown();
+        renderReportPreview();
+        if (activeModalIncidentId === id) {
+          openIncidentModal(id);
+        }
       }
     }
 
@@ -3049,24 +3198,32 @@ ${inc.recommended_action}
             isolated_at: new Date().toLocaleString()
           });
           inc.status = "Contained";
+          if (!inc.timeline) inc.timeline = [];
           inc.timeline.push({
             stage: "Response",
             time: new Date().toLocaleTimeString(),
             actor: "Endpoint Isolation",
             message: `Host ${inc.target_asset} quarantined to isolated VLAN.`
           });
+          if (!state.audit_logs) state.audit_logs = [];
           state.audit_logs.unshift({
             time: new Date().toLocaleTimeString(),
             type: "ISOLATE_ENDPOINT",
             target: inc.target_asset,
             status: "Executed",
-            details: `VLAN isolation deployed for ${inc.target_asset}.`
+            details: `VLAN isolation deployed for ${inc.target_asset}. Incident ${inc.id} marked as Contained.`
           });
+          state.today_attack_events = (state.today_attack_events || 7) + 1;
           saveAppState(state);
           SyncEngine.publish('FULL_STATE_SYNC', state);
           showToast(`Host ${inc.target_asset} successfully isolated!`, 'success');
-          openIncidentModal(inc.id);
           renderDashboard();
+          renderResponseCenter();
+          if (currentTab === 'live-alerts') renderLiveAlerts();
+          if (currentTab === 'incidents') renderIncidentsTable();
+          populateReportDropdown();
+          renderReportPreview();
+          openIncidentModal(inc.id);
         } else {
           showToast("Host is already isolated!", 'warning');
         }
@@ -3083,6 +3240,7 @@ ${inc.recommended_action}
       // Initialize icons and dashboard
       lucide.createIcons();
       renderDashboard();
+      populateReportDropdown();
 
       // Initialize Real-Time Multi-Device Mesh Sync
       SyncEngine.init();
