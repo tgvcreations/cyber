@@ -59,10 +59,13 @@
 
   <style>
     body {
-      background-color: #070B14;
+      background-color: #080C14;
       color: #F8FAFC;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 85% 15%, rgba(139, 92, 246, 0.05) 0%, transparent 40%);
     }
     
     /* Custom Scrollbar */
@@ -71,25 +74,34 @@
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #0B0F19;
+      background: #080C14;
     }
     ::-webkit-scrollbar-thumb {
-      background: #1F2937;
-      border-radius: 4px;
+      background: #1E293B;
+      border-radius: 9999px;
     }
     ::-webkit-scrollbar-thumb:hover {
       background: #38BDF8;
     }
 
-    /* Subtle Card Border & Glow */
+    /* Modern Enterprise Glass & Card Styles */
     .soc-card {
-      background: #111827;
-      border: 1px solid #1E293B;
-      border-radius: 12px;
-      transition: all 0.2s ease-in-out;
+      background: linear-gradient(180deg, rgba(17, 24, 39, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      backdrop-filter: blur(12px);
+      border-radius: 14px;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .soc-card:hover {
-      border-color: #334155;
+      border-color: rgba(56, 189, 248, 0.25);
+      box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.45);
+    }
+
+    .soc-elevated {
+      background: linear-gradient(180deg, #131D2E 0%, #0F172A 100%);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 14px;
     }
 
     /* Print styling for Formal Incident Reports */
@@ -97,6 +109,7 @@
       body {
         background: #FFFFFF !important;
         color: #000000 !important;
+        background-image: none !important;
       }
       .no-print {
         display: none !important;
@@ -148,10 +161,6 @@
 
       <!-- Quick Action Buttons -->
       <div class="flex items-center space-x-2">
-        <a id="githubRepoLink" href="https://github.com" target="_blank" class="px-2 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition text-xs hidden sm:flex items-center gap-1 border border-slate-700/60" title="View Source Code Repository on GitHub">
-          <i data-lucide="github" class="w-4 h-4"></i>
-          <span class="text-[11px] font-medium text-slate-300">GitHub</span>
-        </a>
         <button id="audioToggleBtn" onclick="toggleAudio()" class="px-2 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition text-xs flex items-center gap-1 border border-slate-700/60" title="Toggle Real-Time Audio Alarm">
           <i data-lucide="volume-2" class="w-4 h-4 text-emerald-400" id="audioIcon"></i>
           <span class="text-[11px] hidden sm:inline text-slate-300 font-medium">Sound ON</span>
