@@ -172,7 +172,7 @@
           <span class="text-xs font-mono font-bold text-rose-400" id="defconText">DEFCON 2: ELEVATED THREAT</span>
         </div>
         <span class="text-slate-600">|</span>
-        <span class="text-xs font-mono text-slate-400" id="liveClock">UTC 00:00:00</span>
+        <span class="text-xs font-mono text-slate-400" id="liveClock">IST 00:00:00</span>
       </div>
 
       <!-- Quick Action Buttons -->
@@ -628,7 +628,7 @@
           <table class="w-full text-left text-xs font-mono">
             <thead class="text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800 bg-midnight-800/50">
               <tr>
-                <th class="py-2.5 px-3">Timestamp (UTC)</th>
+                <th class="py-2.5 px-3">Timestamp (IST)</th>
                 <th class="py-2.5 px-3">Action Type</th>
                 <th class="py-2.5 px-3">Target</th>
                 <th class="py-2.5 px-3">Status</th>
@@ -1820,10 +1820,11 @@ from Financial Database (DB-Prod-01) to 91.240.118.12:8443 Protocol: HTTPS Durat
       lucide.createIcons();
     }
 
-    // Live Clock Updater
+    // Live Clock Updater (IST)
     function updateClock() {
       const now = new Date();
-      document.getElementById('liveClock').textContent = 'UTC ' + now.toUTCString().split(' ')[4];
+      const istTime = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata' });
+      document.getElementById('liveClock').textContent = 'IST ' + istTime;
     }
     setInterval(updateClock, 1000);
     updateClock();
